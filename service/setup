@@ -1,47 +1,65 @@
 #!/bin/bash
-while [[ $# -gt 0 ]]
-do
-key="$1"
-case $key in
---address)
-addr="$2"
-sed -i '385 s/^/# /' /etc/service/privoxy/config
-# actionsfile match-all.action
-sed -i '386 s/^/# /' /etc/service/privoxy/config
-# actionsfile default.action
-sed -i '387 s/^/# /' /etc/service/privoxy/config
-# actionsfile user.action
-sed -i 's@listen-address  127.0.0.1:8118@listen-address '"${addr}"':8118@' /etc/service/privoxy/config
-# listen-address  127.0.0.1:8118
-sed -i 's@#        permit-access  192.168.45.64/26@        permit-access  '"${addr}"'/0 @' /etc/service/privoxy/config
-# #permit-access  192.168.45.64/24
-sed -i 's@#        forward-socks5t   /               127.0.0.1:9050 .@        forward-socks5t   /               '"${addr}"':9050 .@' /etc/service/privoxy/config
-# forward-socks5t   /               127.0.0.1:9050 .
-sed -i 's/#SocksPort 9050 .*/SocksPort '"${addr}"':9050/' /etc/service/tor/torrc
-# #SocksPort 9050
-sed -i 's/#ControlPort 9051/ControlPort 9051/' /etc/service/tor/torrc
-# #ControlPort 9051
-sed -i 's@#SocksPolicy accept .*@SocksPolicy accept '"${addr}"'/0@' /etc/service/tor/torrc
-# #SocksPolicy accept 192.168.0.0/16
-sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/' /etc/service/tor/torrc
-# #RunAsDaemon 1
-sed -i 's/#CookieAuthentication 1/CookieAuthentication 1/' /etc/service/tor/torrc
-# # #CookieAuthentication 1
-sed -i 's/#ExitPolicy reject .*/ExitPolicy reject *:*/'
-#ExitPolicy reject *:* # no exits allowed
 
-shift
-;;
---passwd)
-passwd="$2"
-hash=$(tor --hash-password "$passwd" | grep '16:' | cut -d ' ' -f 4)
-sed -i 's/#HashedControlPassword .*/HashedControlPassword '"${hash}"'/' /etc/service/tor/torrc
-sed -i "s/password=.*/password='${passwd}')/" /etc/service/newnym.py
-shift
-;;
-esac
-shift
+while (( $# > 0 )); do
+   key="$1"
+
+   case $key in
+      --address)
+         addr="$2"
+
+         sed -i '{
+            # actionsfile match-all.action
+            385 s/^/# /
+
+            # actionsfile default.action
+            386 s/^/# /
+
+            # actionsfile user.action
+            387 s/^/# /
+
+            # listen-address  127.0.0.1:8118
+            s@listen-address  127.0.0.1:8118@listen-address '"${addr}"':8118@
+
+            # permit-access  192.168.45.64/24
+            s@#        permit-access  192.168.45.64/26@        permit-access  '"${addr}"'/0 @
+
+            # forward-socks5t   /               127.0.0.1:9050 .
+            s@#        forward-socks5t   /               127.0.0.1:9050 .@        forward-socks5t   /               '"${addr}"':9050 .@
+
+         }' /etc/service/privoxy/config
+
+         sed -i '{
+            # SocksPort 9050
+            s/#SocksPort 9050 .*/SocksPort '"${addr}"':9050/
+
+            # ControlPort 9051
+            s/#ControlPort 9051/ControlPort 9051/
+
+            # SocksPolicy accept 192.168.0.0/16
+            s@#SocksPolicy accept .*@SocksPolicy accept '"${addr}"'/0@
+
+            # RunAsDaemon 1
+            s/#RunAsDaemon 1/RunAsDaemon 1/
+
+            # CookieAuthentication 1
+            s#CookieAuthentication 1/CookieAuthentication 1/
+
+            #ExitPolicy reject *:* # no exits allowed
+            /#ExitPolicy reject .*/ExitPolicy reject *:*/
+         }' /etc/service/tor/torrc
+
+         shift
+         ;;
+
+      --passwd)
+         passwd="$2"
+         hash=$(tor --quiet --hash-password "$passwd")
+         sed -i 's/#HashedControlPassword .*/HashedControlPassword '"${hash}"'/' /etc/service/tor/torrc
+         sed -i "s/password=.*/password='${passwd}')/" /etc/service/newnym.py
+         shift
+         ;;
+   esac
+   shift
 done
-if [[ -z "$addr" ]] && [[ -z "$passwd" ]]; then
-echo "How to use:'"
-fi
+
+[[ -z "${addr}${passwd}" ]]  && echo "How to use:'"
